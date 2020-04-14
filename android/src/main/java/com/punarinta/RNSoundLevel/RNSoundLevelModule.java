@@ -36,7 +36,7 @@ class RNSoundLevelModule extends ReactContextBaseJavaModule {
   private AudioRecord recordAudio;
   private int minBytes;
   private int sampleRate = 44100;
-  private int fftBins = 22;
+  private int fftBins = 44000;
   private final static int AGC_OFF = MediaRecorder.AudioSource.VOICE_RECOGNITION;
   private final static float MEAN_MAX = 16384f;
 
@@ -214,11 +214,28 @@ class RNSoundLevelModule extends ReactContextBaseJavaModule {
         convertToDb(fftData, scale);
         doubleToInt(fftData, fftDataInt);
         // Log.d(TAG, "size: " + fftData.length);
-        for (int i=1; i < fftData.length; i++) {
-          // Log.d(TAG, "data-" + i + ":" + fftData[i]);
-          frec.pushDouble((float)fftData[i]);
-          // data[j] = db2(data[i], data[i+1], maxSquared);
+        int arraywidth = fftData.length / 44;
+        int arrayCount = 0;
+        int maxFrec = 0;
+        double sumFrecTemp = 0;
+        double avgFrec = 0;
+        for (int i=1; i <= 22; i++) {
+          sumFrecTemp = 0;
+          for (int j=1; j < arraywidth; j++) {
+            sumFrecTemp = sumFrecTemp + fftData[i*j];
+            if (fftData[i*j] > fftData[maxFrec]) {
+              maxFrec = i*j;
+            }
+          }
+          avgFrec = 1.0d * sumFrecTemp / arraywidth;
+          frec.pushDouble((float)avgFrec);
         }
+        // // for (int i=1; i < fftData.length; i++) {
+        // for (int i=1; i < fftData.length; i++) {
+        //   // Log.d(TAG, "data-" + i + ":" + fftData[i]);
+        //   frec.pushDouble((float)fftData[i]);
+        //   // data[j] = db2(data[i], data[i+1], maxSquared);
+        // }
 
         double sum = 0;
 
@@ -230,7 +247,7 @@ class RNSoundLevelModule extends ReactContextBaseJavaModule {
         double rms = Math.sqrt(sum / audioSamples.length);
         double db = 20 * Math.log10(rms);
 
-        body.putInt("maxFrec", 0);
+        body.putInt("maxFrec", maxFrec);
         body.putArray("meanFrec", frec);
         body.putInt("value", -160);
         body.putInt("rawValue", 0);
@@ -238,7 +255,7 @@ class RNSoundLevelModule extends ReactContextBaseJavaModule {
 
         sendEvent("frame", body);
       }
-    }, 1500, 250);
+    }, 0, 250);
   }
 
   private void stopTimer() {
